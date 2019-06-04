@@ -343,7 +343,7 @@ RSpec.describe Racecar::Runner do
   end
 
   context "handling signals" do
-    let(:processor) { NonRentrantTeardownConsumer.new }
+    let(:processor) { NonReEntrantTeardownConsumer.new }
 
     it "handles multiple consecutive terminate signals" do
       runner.run
