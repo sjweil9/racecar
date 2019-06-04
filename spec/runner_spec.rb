@@ -32,6 +32,19 @@ class TestConsumer < Racecar::Consumer
   end
 end
 
+class NonReEntrantTeardownConsumer < TestConsumer
+  def initialize
+    super
+    @working_file = File.open('test', 'wb+')
+  end
+
+  def teardown
+    File.delete(@working_file.path)
+    sleep 1
+    @torn_down = true
+  end
+end
+
 class TestBatchConsumer < Racecar::Consumer
   subscribes_to "greetings"
 
@@ -324,6 +337,18 @@ RSpec.describe Racecar::Runner do
 
     it "allows the processor to tear down resources" do
       runner.stop
+
+      expect(processor.torn_down?).to eq true
+    end
+  end
+
+  context "handling signals" do
+    let(:processor) { NonRentrantTeardownConsumer.new }
+
+    it "handles multiple consecutive terminate signals" do
+      runner.run
+
+      2.times { Process.kill 'TERM', 0 }
 
       expect(processor.torn_down?).to eq true
     end
