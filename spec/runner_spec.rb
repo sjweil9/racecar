@@ -39,9 +39,9 @@ class NonReEntrantTeardownConsumer < TestConsumer
   end
 
   def teardown
-    File.delete(@working_file.path)
-    sleep 1
     @torn_down = true
+    File.delete(@working_file.path)
+    sleep 0.1
   end
 end
 
