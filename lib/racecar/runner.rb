@@ -2,11 +2,12 @@ require "kafka"
 
 module Racecar
   class Runner
-    attr_reader :processor, :config, :logger, :consumer
+    attr_reader :processor, :config, :logger, :consumer, :signal_queue
 
     def initialize(processor, config:, logger:, instrumenter: NullInstrumenter)
       @processor, @config, @logger = processor, config, logger
       @instrumenter = instrumenter
+      @signal_queue = []
     end
 
     def stop
@@ -47,6 +48,9 @@ module Racecar
       )
 
       # Stop the consumer on SIGINT, SIGQUIT or SIGTERM.
+      %w[QUIT INT TERM].each do |signal|
+        trap(signal) { signal_queue << signal }
+      end
       trap("QUIT") { stop }
       trap("INT") { stop }
       trap("TERM") { stop }
@@ -72,6 +76,8 @@ module Racecar
       begin
         if processor.respond_to?(:process)
           consumer.each_message(max_wait_time: config.max_wait_time, max_bytes: config.max_bytes) do |message|
+            handle_signals
+
             payload = {
               consumer_class: processor.class.to_s,
               topic: message.topic,
@@ -86,6 +92,8 @@ module Racecar
           end
         elsif processor.respond_to?(:process_batch)
           consumer.each_batch(max_wait_time: config.max_wait_time, max_bytes: config.max_bytes) do |batch|
+            handle_signals
+
             payload = {
               consumer_class: processor.class.to_s,
               topic: batch.topic,
@@ -144,6 +152,10 @@ module Racecar
       else
         @logger.info "Gracefully shutting down"
       end
+    end
+
+    def handle_signals
+
     end
   end
 end
