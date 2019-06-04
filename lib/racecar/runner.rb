@@ -47,16 +47,10 @@ module Racecar
         fetcher_max_queue_size: config.max_fetch_queue_size,
       )
 
-      # Stop the consumer on SIGINT, SIGQUIT or SIGTERM.
-      %w[QUIT INT TERM].each do |signal|
+      # Trap relevant signals and manage them in a queue.
+      %i[QUIT INT TERM USR1].each do |signal|
         trap(signal) { signal_queue << signal }
       end
-      trap("QUIT") { stop }
-      trap("INT") { stop }
-      trap("TERM") { stop }
-
-      # Print the consumer config to STDERR on USR1.
-      trap("USR1") { $stderr.puts config.inspect }
 
       config.subscriptions.each do |subscription|
         consumer.subscribe(
@@ -155,7 +149,14 @@ module Racecar
     end
 
     def handle_signals
-
+      case signal_queue.pop
+      when :INT, :TERM, :QUIT
+        # Stop the consumer on SIGINT, SIGQUIT or SIGTERM.
+        stop
+      when :USR1
+        # Print the consumer config to STDERR on USR1.
+        $stderr.puts config.inspect
+      end
     end
   end
 end
